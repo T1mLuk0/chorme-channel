@@ -1,0 +1,37 @@
+SMART-CONTAINER CLOUD EDGE DEPLOYMENT
+
+This folder is the GitHub-side collector. It does not run on the Linux server
+and it does not depend on a local Windows computer.
+
+Required deployment order:
+
+1. Deploy the matching Linux backend folder first.
+2. Apply Database/007_smart_container_multi_yard_import.sql to logistics_ai.
+3. Generate one secret on Linux:
+
+   openssl rand -hex 32
+
+4. Configure these BaoTa backend environment variables and restart the API:
+
+   KDocsCollector__Enabled=false
+   SmartContainerImport__Enabled=true
+   SmartContainerImport__ApiKey=THE_GENERATED_SECRET
+
+5. Create a private GitHub repository before uploading this folder.
+6. In repository Settings > Secrets and variables > Actions, add:
+
+   SMART_CONTAINER_IMPORT_URL
+   https://eshinetong.com/api/smart-containers/import
+
+   SMART_CONTAINER_IMPORT_SECRET
+   THE_SAME_GENERATED_SECRET
+
+7. Push the complete contents of this folder to main, including .github.
+
+The first push starts one immediate Microsoft Edge collection. A validated
+snapshot is posted directly to the backend and transactionally stored in
+MySQL. Later scheduled runs execute every day at 01:00 UTC / 09:00 China time.
+
+The workflow uploads its JSON, raw TSV files, and WPS screenshot as a GitHub
+Actions artifact for 14 days. Invalid or partial data is rejected before the
+database transaction starts.
