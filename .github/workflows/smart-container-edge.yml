@@ -7,8 +7,9 @@ on:
       - "automation/SmartContainer.EdgeCollector/**"
       - ".github/workflows/smart-container-edge.yml"
   schedule:
-    # 01:00 UTC is 09:00 in Asia/Shanghai.
-    - cron: "0 1 * * *"
+    # 01:10 UTC is 09:10 in Asia/Shanghai. Avoid the crowded top of the hour
+    # and allow the external WPS editor to finish its daily update first.
+    - cron: "10 1 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -27,7 +28,7 @@ concurrency:
 jobs:
   collect:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       DOTNET_NOLOGO: true
       SMART_CONTAINER_SOURCE_KEY: taicang
@@ -39,6 +40,9 @@ jobs:
       # Initial push and scheduled runs import immediately. Manual runs can be dry runs.
       SMART_CONTAINER_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
       SMART_CONTAINER_OUTPUT_DIR: artifacts/smart-container-run
+      # Re-read the full workbook when WPS is caught between two source dates.
+      SMART_CONTAINER_VALIDATION_RETRY_COUNT: 2
+      SMART_CONTAINER_VALIDATION_RETRY_DELAY_SECONDS: 15
 
     steps:
       - name: Check out source
