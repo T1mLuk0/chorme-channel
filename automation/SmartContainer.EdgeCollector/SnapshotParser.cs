@@ -133,23 +133,29 @@ internal static partial class SnapshotParser
                 $"Only {carrierCount} recognized carriers were present in parsed records.");
         }
 
-        var dates = records
-            .Select(static record => record.DataDate)
-            .OfType<DateOnly>()
-            .Distinct()
-            .ToList();
-        if (dates.Count != 1)
+        var inconsistentYard = records
+            .GroupBy(static record => new
+            {
+                record.SheetName,
+                record.Yard
+            })
+            .Select(group => new
+            {
+                group.Key,
+                Dates = group
+                    .Select(static record => record.DataDate)
+                    .OfType<DateOnly>()
+                    .Distinct()
+                    .OrderBy(static date => date)
+                    .ToList()
+            })
+            .FirstOrDefault(static group => group.Dates.Count != 1);
+        if (inconsistentYard is not null)
         {
-            var dateDetails = records
-                .GroupBy(static record => record.DataDate)
-                .OrderBy(static group => group.Key)
-                .Select(static group =>
-                    $"{group.Key?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "<empty>"} " +
-                    $"({group.Count()} records; locations: {string.Join(", ", group.Select(record => $"{record.SheetName}/{record.Yard}").Distinct(StringComparer.Ordinal))})")
-                .ToList();
             throw new InvalidOperationException(
-                "The parsed workbook did not contain exactly one source data date. " +
-                $"Distinct dates: {string.Join("; ", dateDetails)}");
+                $"Yard '{inconsistentYard.Key.SheetName}/{inconsistentYard.Key.Yard}' " +
+                "did not contain exactly one source data date. " +
+                $"Dates: {string.Join(", ", inconsistentYard.Dates.Select(static date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)))}");
         }
 
         var expectedKeyword = expectedPortName.Trim().TrimEnd('港');

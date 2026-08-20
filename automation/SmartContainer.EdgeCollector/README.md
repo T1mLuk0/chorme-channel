@@ -33,9 +33,11 @@ gives the external WPS editor time to finish its daily update. GitHub may still
 start scheduled jobs a few minutes late during busy periods; the payload
 includes the actual collection timestamp.
 
-If WPS is caught between two source data dates, the collector reads every
-configured worksheet again up to two times with a 15-second delay. It never
-merges different dates or imports a snapshot that remains inconsistent.
+Each yard keeps the source date shown next to that yard in WPS. Different
+yards may legitimately have different dates because external operators update
+them independently. The collector rejects only a yard whose own records do
+not resolve to exactly one source date. It never rewrites an older yard date
+to make the workbook look uniformly current.
 
 The first push to `main` or `master` that adds or changes the collector runs
 one immediate non-dry collection and imports it into MySQL through the backend.

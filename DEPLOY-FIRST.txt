@@ -17,6 +17,20 @@ Required deployment order:
    SmartContainerImport__Enabled=true
    SmartContainerImport__ApiKey=THE_GENERATED_SECRET
 
+   To enable the website manual collection button, also configure:
+
+   GitHubActions__Enabled=true
+   GitHubActions__Owner=T1mLuk0
+   GitHubActions__Repository=chorme-channel
+   GitHubActions__WorkflowFile=smart-container-edge.yml
+   GitHubActions__Ref=main
+   GitHubActions__Token=THE_GITHUB_TOKEN
+   GitHubActions__MinimumIntervalSeconds=300
+
+   The token is used only by the ASP.NET backend to call GitHub's
+   workflow-dispatch API. Do not put it in frontend source or browser storage.
+   It needs permission to dispatch workflows in this repository.
+
 5. Create a private GitHub repository before uploading this folder.
 6. In repository Settings > Secrets and variables > Actions, add:
 
@@ -33,10 +47,15 @@ snapshot is posted directly to the backend and transactionally stored in
 MySQL. Later scheduled runs execute every day at 01:10 UTC / 09:10 China time.
 The ten-minute offset avoids GitHub's busy top-of-hour queue and gives the
 external WPS editor time to finish its daily update. If the two worksheets
-still expose different source dates, the collector re-reads the complete
-workbook twice with a 15-second delay and rejects the snapshot if it remains
-inconsistent.
+are being updated, each yard keeps its own source date. Different yards may
+legitimately have different dates. A yard is rejected only when its own rows
+do not resolve to exactly one source date. The backend applies the same rule.
 
 The workflow uploads its JSON, raw TSV files, and WPS screenshot as a GitHub
 Actions artifact for 14 days. Invalid or partial data is rejected before the
 database transaction starts.
+
+The website endpoint `POST /api/smart-containers/trigger?sourceKey=taicang`
+starts the workflow with `dry_run=false`. It returns HTTP 202 after GitHub
+accepts the dispatch request. The backend applies a five-minute default
+cooldown to prevent repeated clicks from starting overlapping collections.
