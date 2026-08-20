@@ -140,8 +140,16 @@ internal static partial class SnapshotParser
             .ToList();
         if (dates.Count != 1)
         {
+            var dateDetails = records
+                .GroupBy(static record => record.DataDate)
+                .OrderBy(static group => group.Key)
+                .Select(static group =>
+                    $"{group.Key?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "<empty>"} " +
+                    $"({group.Count()} records; locations: {string.Join(", ", group.Select(record => $"{record.SheetName}/{record.Yard}").Distinct(StringComparer.Ordinal))})")
+                .ToList();
             throw new InvalidOperationException(
-                "The parsed workbook did not contain exactly one source data date.");
+                "The parsed workbook did not contain exactly one source data date. " +
+                $"Distinct dates: {string.Join("; ", dateDetails)}");
         }
 
         var expectedKeyword = expectedPortName.Trim().TrimEnd('港');

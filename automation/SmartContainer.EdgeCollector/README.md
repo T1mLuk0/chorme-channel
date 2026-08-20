@@ -27,9 +27,15 @@ Open **Actions > Smart-container Edge collection > Run workflow** and keep
 - `wps-success.png`
 
 Inspect the JSON before running the workflow again with `dry_run` disabled.
-Scheduled runs always import and execute at 01:00 UTC, which is 09:00 in
-Asia/Shanghai. GitHub may start scheduled jobs a few minutes late during busy
-periods; the payload includes the actual collection timestamp.
+Scheduled runs always import and execute at 01:10 UTC, which is 09:10 in
+Asia/Shanghai. The ten-minute offset avoids GitHub's busy top-of-hour queue and
+gives the external WPS editor time to finish its daily update. GitHub may still
+start scheduled jobs a few minutes late during busy periods; the payload
+includes the actual collection timestamp.
+
+If WPS is caught between two source data dates, the collector reads every
+configured worksheet again up to two times with a 15-second delay. It never
+merges different dates or imports a snapshot that remains inconsistent.
 
 The first push to `main` or `master` that adds or changes the collector runs
 one immediate non-dry collection and imports it into MySQL through the backend.

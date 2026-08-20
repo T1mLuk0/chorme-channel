@@ -11,7 +11,9 @@ public sealed record CollectorOptions(
     string? EdgeExecutablePath,
     bool DryRun,
     int NavigationTimeoutSeconds,
-    int SettleDelaySeconds)
+    int SettleDelaySeconds,
+    int ValidationRetryCount,
+    int ValidationRetryDelaySeconds)
 {
     public static CollectorOptions FromEnvironment()
     {
@@ -42,7 +44,9 @@ public sealed record CollectorOptions(
             NullIfEmpty(Get("EDGE_EXECUTABLE_PATH")),
             dryRun,
             GetInteger("SMART_CONTAINER_NAVIGATION_TIMEOUT_SECONDS", 90, 30, 180),
-            GetInteger("SMART_CONTAINER_SETTLE_DELAY_SECONDS", 12, 5, 60));
+            GetInteger("SMART_CONTAINER_SETTLE_DELAY_SECONDS", 12, 5, 60),
+            GetInteger("SMART_CONTAINER_VALIDATION_RETRY_COUNT", 2, 0, 5),
+            GetInteger("SMART_CONTAINER_VALIDATION_RETRY_DELAY_SECONDS", 15, 5, 60));
     }
 
     private static string Get(string name, string fallback = "") =>

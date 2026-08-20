@@ -73,25 +73,62 @@ public sealed class WpsEdgeCollector(CollectorOptions options)
                     "The WPS page loaded without a document title.");
             }
 
-            var records = new List<SnapshotRecord>();
-            foreach (var worksheetName in options.WorksheetNames)
+            SnapshotImportRequest? snapshot = null;
+            Exception? lastValidationException = null;
+            var maxAttempts = options.ValidationRetryCount + 1;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                var tsv = await CopyWorksheetAsync(
-                    page,
-                    worksheetName,
-                    cancellationToken);
-                var rawPath = Path.Combine(
-                    options.OutputDirectory,
-                    $"worksheet-{SanitizeFileName(worksheetName)}.tsv");
-                await File.WriteAllTextAsync(rawPath, tsv, cancellationToken);
-                records.AddRange(SnapshotParser.ParseWorksheet(
-                    worksheetName,
-                    DelimitedText.ParseTsv(tsv),
-                    options.PortName,
-                    collectedAt));
+                var records = new List<SnapshotRecord>();
+                foreach (var worksheetName in options.WorksheetNames)
+                {
+                    var tsv = await CopyWorksheetAsync(
+                        page,
+                        worksheetName,
+                        cancellationToken);
+                    var rawPath = Path.Combine(
+                        options.OutputDirectory,
+                        $"worksheet-{SanitizeFileName(worksheetName)}.tsv");
+                    await File.WriteAllTextAsync(rawPath, tsv, cancellationToken);
+                    records.AddRange(SnapshotParser.ParseWorksheet(
+                        worksheetName,
+                        DelimitedText.ParseTsv(tsv),
+                        options.PortName,
+                        collectedAt));
+                }
+
+                try
+                {
+                    SnapshotParser.ValidateSnapshot(records, options.PortName);
+                    snapshot = new SnapshotImportRequest(
+                        options.SourceKey,
+                        sourceTitle,
+                        collectedAt,
+                        records);
+                    break;
+                }
+                catch (InvalidOperationException exception)
+                    when (attempt < maxAttempts && IsTransientDateValidationFailure(exception))
+                {
+                    lastValidationException = exception;
+                    Console.WriteLine(
+                        $"Validation attempt {attempt}/{maxAttempts} found a transient " +
+                        $"mixed WPS snapshot: {exception.Message}");
+                    Console.WriteLine(
+                        $"Waiting {options.ValidationRetryDelaySeconds} seconds before " +
+                        "reading all worksheets again.");
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(options.ValidationRetryDelaySeconds),
+                        cancellationToken);
+                }
             }
 
-            SnapshotParser.ValidateSnapshot(records, options.PortName);
+            if (snapshot is null)
+            {
+                throw lastValidationException
+                      ?? new InvalidOperationException(
+                          "The WPS snapshot could not be validated.");
+            }
+
             await page.ScreenshotAsync(new PageScreenshotOptions
             {
                 Path = Path.Combine(
@@ -99,11 +136,7 @@ public sealed class WpsEdgeCollector(CollectorOptions options)
                     "wps-success.png"),
                 FullPage = false
             });
-            return new SnapshotImportRequest(
-                options.SourceKey,
-                sourceTitle,
-                collectedAt,
-                records);
+            return snapshot;
         }
         catch
         {
@@ -145,6 +178,12 @@ public sealed class WpsEdgeCollector(CollectorOptions options)
 
         return clipboardText;
     }
+
+    private static bool IsTransientDateValidationFailure(
+        InvalidOperationException exception) =>
+        exception.Message.Contains(
+            "source data date",
+            StringComparison.OrdinalIgnoreCase);
 
     private static async Task DismissQuickLoginAsync(IPage page)
     {

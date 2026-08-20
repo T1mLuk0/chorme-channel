@@ -30,7 +30,12 @@ Required deployment order:
 
 The first push starts one immediate Microsoft Edge collection. A validated
 snapshot is posted directly to the backend and transactionally stored in
-MySQL. Later scheduled runs execute every day at 01:00 UTC / 09:00 China time.
+MySQL. Later scheduled runs execute every day at 01:10 UTC / 09:10 China time.
+The ten-minute offset avoids GitHub's busy top-of-hour queue and gives the
+external WPS editor time to finish its daily update. If the two worksheets
+still expose different source dates, the collector re-reads the complete
+workbook twice with a 15-second delay and rejects the snapshot if it remains
+inconsistent.
 
 The workflow uploads its JSON, raw TSV files, and WPS screenshot as a GitHub
 Actions artifact for 14 days. Invalid or partial data is rejected before the
